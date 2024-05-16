@@ -87,7 +87,7 @@ class DataConfig(BaseConfig):
     cache_dir: str = None
     force_cache: bool = False 
 
-class ModelConfig(BaseConfig):
+class ModelConfig(BaseConfig): # with added scratch token fields
     sequence_mixer: ModuleConfig = None
     state_mixer: ModuleConfig = ModuleConfig(
         name="zoology.mixers.mlp.MLP", 
@@ -105,6 +105,12 @@ class ModelConfig(BaseConfig):
     drop_path: float = 0.0
     layer_norm_epsilon: float = 1e-5
     pad_vocab_size_multiple: int = 1
+
+    # scratch token fields
+    transformer: str = "normal" # normal or scratch
+    scratch: str = "add" # add or replace
+    num_scratch: int = 1 # number of scratch tokens
+
 
     block_type: str = "TransformerBlock"
     name: str = "default"
