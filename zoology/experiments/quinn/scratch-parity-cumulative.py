@@ -121,7 +121,6 @@ for d_model in [
         )
         models.append(model)
 
-
 # 3. Finally we'll create a train config for each
 configs = []
 for data in datas:

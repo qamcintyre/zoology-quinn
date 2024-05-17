@@ -5,8 +5,6 @@ from ..config import DataSegmentConfig
 from .utils import DataSegment
 import torch
 
-
-# this is buggy -- will fix later
 class FuzzyInContextRecallConfig(DataSegmentConfig):
     vocab_size: int = 16
     seq_len: int = 128

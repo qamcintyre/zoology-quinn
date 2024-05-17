@@ -1,7 +1,7 @@
 import uuid
 import numpy as np
 from zoology.config import TrainConfig, ModelConfig, ModuleConfig, DataConfig, LoggerConfig
-from zoology.data.circuits import ParityConfig
+from zoology.data.circuits import CumulativeMajorityConfig
 
 
 sweep_id = uuid.uuid4().hex[:6]
@@ -14,15 +14,15 @@ VOCAB_SIZE = 3
 datas = []
 
 for k in [
-    4, 
-    8, 
-    16, 
-    32, 
-    # 64, 
-    # 128
+    # 4, 
+    # 8, 
+    # 16, 
+    # 32, 
+    64, 
+    128
     ]:
-    train_configs = [ParityConfig(vocab_size=VOCAB_SIZE, input_seq_len=k, num_examples=100_000)]
-    test_configs = [ParityConfig(vocab_size=VOCAB_SIZE, input_seq_len=k, num_examples=1_000)]
+    train_configs = [CumulativeMajorityConfig(vocab_size=VOCAB_SIZE, input_seq_len=k, num_examples=100_000)]
+    test_configs = [CumulativeMajorityConfig(vocab_size=VOCAB_SIZE, input_seq_len=k, num_examples=1_000)]
 
     input_seq_len=max([c.input_seq_len for c in train_configs + test_configs])
     batch_size = 256
@@ -31,7 +31,7 @@ for k in [
         test_configs=test_configs,
         # can pass a tuple if you want a different batch size for train and test
         batch_size=(batch_size, batch_size / 8),
-        cache_dir="/home/quinn/quinn_data/synthetics",
+        cache_dir="/scratch/quinn/synthetics/data",
         force_cache=True
     )
     datas.append(data)
@@ -54,16 +54,9 @@ conv_mixer = dict(
     }
 )
 
-# scratch transformers
-for d_model in [
-    # 8, 
-    # 16, 
-    32
-    ]:
-    for num_heads in [
-        2, 
-        4
-        ]:
+# attention
+for d_model in [8, 16, 32]:
+    for num_heads in [2, 4]:
         attention_mixer = dict(
             name="zoology.mixers.attention.MHA",
             kwargs={
@@ -81,45 +74,45 @@ for d_model in [
             n_layers=2,
             sequence_mixer=mixer,
             max_position_embeddings=0,
-            transformer="scratch",
-            num_scratch=2,
-            scratch="add",
             name=f"attention-dim-{d_model}-heads-{num_heads}",
             **model_factory_kwargs
         )
         models.append(model)
 
-# attention
-for d_model in [
-    # 8, 
-    # 16, 
-    32
-    ]:
-    for num_heads in [
-        2, 
-        4
-        ]:
-        attention_mixer = dict(
-            name="zoology.mixers.attention.MHA",
-            kwargs={
-                "dropout": 0.1,
-                "num_heads": num_heads
-            },
-        )
-        mixer = ModuleConfig(
-            name="zoology.mixers.hybrid.Hybrid",
-            kwargs={"configs": [conv_mixer, attention_mixer]}
-        )
-        model = ModelConfig(
-            block_type = "TransformerBlock",
-            d_model=d_model,
-            n_layers=2,
-            sequence_mixer=mixer,
-            max_position_embeddings=0,
-            name=f"attention-dim-{d_model}-heads-{num_heads}",
-            **model_factory_kwargs
-        )
-        models.append(model)
+# hydra attn
+for d_model in [8, 16, 32]:
+    for num_heads in [2, 4]:
+        for combiner in [
+            "scalar", 
+            "dual", 
+            "content_aware", 
+            "softmax_content"
+            ]:
+            attention_mixer = dict(
+                name="zoology.mixers.hydra.grouped_hydra_attn.MHH",
+                kwargs={
+                    "num_heads": num_heads,
+                    "head_groups": 1, 
+                    "combiner": combiner,  
+                    "sum_dim": "q",  
+                    "scalar_act": "identity",  
+                    "bias": False,  
+                    "dropout": 0,  
+                }
+            )
+            mixer = ModuleConfig(
+                name="zoology.mixers.hybrid.Hybrid",
+                kwargs={"configs": [conv_mixer, attention_mixer]}
+            )
+            model=ModelConfig(
+                block_type = "TransformerBlock",
+                d_model=d_model,
+                n_layers=2,
+                sequence_mixer=mixer,
+                max_position_embeddings=0,
+                name=f"hydra_attention-{combiner}-dim-{d_model}-heads-{num_heads}",
+            )
+            models.append(model)
 
 # 3. Finally we'll create a train config for each
 configs = []
@@ -133,13 +126,13 @@ for data in datas:
                 learning_rate=lr,
                 max_epochs=16,
                 logger=LoggerConfig(
-                    project_name="ScratchParity",
+                    project_name="HydraParitySweepMoreHeadsLogging",
                     entity="hazy-research"
                 ),
                 slice_keys=['input_seq_len'],
                 sweep_id=sweep_name,
                 run_id=run_id,
-                predictions_path=f"/home/quinn/quinn_data/synthetics/predictions/{run_id}",
+                predictions_path=f"/scratch/quinn/synthetics/predictions/{run_id}",
                 collect_predictions=True,
             )
             configs.append(config)

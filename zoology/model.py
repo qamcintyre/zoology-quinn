@@ -143,9 +143,9 @@ class LMBackbone(nn.Module):
         if config.block_type == 'TransformerBlock':
             block_cls = TransformerBlock
         elif config.block_type == 'MambaBlock':
-            # from zoology.mixers.mamba import MambaBlock
-            # block_cls = MambaBlock
-            pass
+            #from zoology.mixers.mamba import MambaBlock
+            #block_cls = MambaBlock
+            AssertionError("MambaBlock not implemented yet")
         self.layers = nn.ModuleList(
             [
                 block_cls(config=config, layer_idx=i)
@@ -338,9 +338,9 @@ class LMBackbone(nn.Module):
         if config.block_type == 'TransformerBlock':
             block_cls = TransformerBlock
         elif config.block_type == 'MambaBlock':
-            # from zoology.mixers.mamba import MambaBlock
-            # block_cls = MambaBlock
-            pass
+            #from zoology.mixers.mamba import MambaBlock
+            #block_cls = MambaBlock
+            AssertionError("MambaBlock not implemented yet")
         self.layers = nn.ModuleList(
             [
                 block_cls(config=config, layer_idx=i)
@@ -383,6 +383,8 @@ class LMScratchBackbone(LMBackbone):
 
 
         scratch_embeds = self.scratch_embeddings(scratch_ids)
+        scratch_embeds = self.scratch_embeddings(scratch_ids)
+
         input_embeds = self.embeddings(
             input_ids,
             position_ids=position_ids,
