@@ -143,8 +143,9 @@ class LMBackbone(nn.Module):
         if config.block_type == 'TransformerBlock':
             block_cls = TransformerBlock
         elif config.block_type == 'MambaBlock':
-            from zoology.mixers.mamba import MambaBlock
-            block_cls = MambaBlock
+            # from zoology.mixers.mamba import MambaBlock
+            # block_cls = MambaBlock
+            pass
         self.layers = nn.ModuleList(
             [
                 block_cls(config=config, layer_idx=i)
@@ -337,8 +338,9 @@ class LMBackbone(nn.Module):
         if config.block_type == 'TransformerBlock':
             block_cls = TransformerBlock
         elif config.block_type == 'MambaBlock':
-            from zoology.mixers.mamba import MambaBlock
-            block_cls = MambaBlock
+            # from zoology.mixers.mamba import MambaBlock
+            # block_cls = MambaBlock
+            pass
         self.layers = nn.ModuleList(
             [
                 block_cls(config=config, layer_idx=i)
@@ -362,6 +364,60 @@ class LMBackbone(nn.Module):
         hidden_states = self.ln_f(residual.to(dtype=self.ln_f.weight.dtype))
         return hidden_states
 
+class LMScratchBackbone(LMBackbone):
+    def __init__(self, config: ModelConfig):
+        super().__init__(config)
+        self.config = config
+
+        self.scratch_embeddings = nn.Embedding(config.num_scratch, config.d_model)
+
+    def forward(
+        self,
+        input_ids,
+        position_ids=None,
+    ):
+        #print("TESTING SCRATCH")
+        scratch_ids = torch.arange(
+            0, self.config.num_scratch, device=input_ids.device, dtype=input_ids.dtype
+        )
+
+
+        scratch_embeds = self.scratch_embeddings(scratch_ids)
+        input_embeds = self.embeddings(
+            input_ids,
+            position_ids=position_ids,
+        )
+
+        with_scratch = input_embeds.repeat_interleave(
+            self.config.num_scratch + 1, dim=1
+        )
+
+        if self.config.scratch == "replace":
+            # TODO: for loops are the devil's lettuce
+            for i in range(self.config.num_scratch):
+                with_scratch[:, 1 + i :: self.config.num_scratch + 1] = scratch_embeds[
+                    i
+                ]
+        elif self.config.scratch == "add":
+            for i in range(self.config.num_scratch):
+                with_scratch[:, 1 + i :: self.config.num_scratch + 1] += scratch_embeds[
+                    i
+                ]
+        else:
+            raise ValueError(f"Unknown scratch type: {self.config.scratch}")
+
+        hidden_states = with_scratch
+
+        residual = None
+        for layer in self.layers:
+            hidden_states, residual = layer(hidden_states, residual)
+        dropped = self.drop_f(hidden_states)
+        residual = (dropped + residual) if residual is not None else dropped
+        hidden_states = self.ln_f(residual.to(dtype=self.ln_f.weight.dtype))
+
+        last_scratch = hidden_states[:, self.config.num_scratch :: self.config.num_scratch + 1]
+
+        return last_scratch
 
 class LanguageModel(nn.Module):
     def __init__(self, config: ModelConfig):
@@ -370,8 +426,13 @@ class LanguageModel(nn.Module):
             config.vocab_size += config.pad_vocab_size_multiple - (
                 config.vocab_size % config.pad_vocab_size_multiple
             )
+        if config.transformer == "normal":
+            self.backbone = LMBackbone(config=config)
+        elif config.transformer == "scratch":
+            self.backbone = LMScratchBackbone(config=config)
+        else:
+            raise ValueError(f"Unknown transformer type: {config.transformer}")
 
-        self.backbone = LMBackbone(config=config)
         self.lm_head = nn.Linear(config.d_model, config.vocab_size, bias=False)
 
         # Initialize weights and apply final processing
@@ -387,13 +448,13 @@ class LanguageModel(nn.Module):
         return self.lm_head(hidden_states)
     
     def state_size(self, sequence_length: int):
-        from zoology.mixers.mamba import MambaBlock
+        #from zoology.mixers.mamba import MambaBlock
 
         state_size = 0
         for layer in self.backbone.layers:
-            if isinstance(layer, MambaBlock):
-                mixer = layer.mixer
-            elif isinstance(layer, TransformerBlock):
+            #if isinstance(layer, MambaBlock):
+            #    mixer = layer.mixer
+            if isinstance(layer, TransformerBlock):
                 mixer = layer.sequence_mixer
             else: 
                 return None

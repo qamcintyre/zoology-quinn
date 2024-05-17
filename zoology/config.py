@@ -109,6 +109,13 @@ class ModelConfig(BaseConfig):
     block_type: str = "TransformerBlock"
     name: str = "default"
 
+    # For the scratch tokens
+    transformer: str = "normal"
+    scratch: str | None = None
+    num_scratch: int | None = None
+
+    
+
 class LoggerConfig(BaseConfig):
 
     project_name: str = None
