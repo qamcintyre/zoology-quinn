@@ -364,22 +364,25 @@ class LMBackbone(nn.Module):
         hidden_states = self.ln_f(residual.to(dtype=self.ln_f.weight.dtype))
         return hidden_states
 
-class LMScratchBackbone(LMBackbone): 
+class LMScratchBackbone(LMBackbone):
     def __init__(self, config: ModelConfig):
         super().__init__(config)
+        self.config = config
 
         self.scratch_embeddings = nn.Embedding(config.num_scratch, config.d_model)
-        self.config = config
 
     def forward(
         self,
         input_ids,
         position_ids=None,
     ):
+        #print("TESTING SCRATCH")
         scratch_ids = torch.arange(
             0, self.config.num_scratch, device=input_ids.device, dtype=input_ids.dtype
         )
 
+
+        scratch_embeds = self.scratch_embeddings(scratch_ids)
         scratch_embeds = self.scratch_embeddings(scratch_ids)
 
         input_embeds = self.embeddings(
@@ -406,7 +409,6 @@ class LMScratchBackbone(LMBackbone):
             raise ValueError(f"Unknown scratch type: {self.config.scratch}")
 
         hidden_states = with_scratch
-
 
         residual = None
         for layer in self.layers:
@@ -453,7 +455,7 @@ class LanguageModel(nn.Module):
         state_size = 0
         for layer in self.backbone.layers:
             #if isinstance(layer, MambaBlock):
-                #mixer = layer.mixer
+            #    mixer = layer.mixer
             if isinstance(layer, TransformerBlock):
                 mixer = layer.sequence_mixer
             else: 

@@ -1,40 +1,40 @@
 import uuid
 import numpy as np
 from zoology.config import TrainConfig, ModelConfig, ModuleConfig, DataConfig, LoggerConfig
-from zoology.data.circuits import ParityConfig
-
+from zoology.data.associative_recall import MQARConfig
 
 sweep_id = uuid.uuid4().hex[:6]
+sweep_name = "hydra_attn" + sweep_id
 
-SEQLEN=64
-sweep_name = f"v2-mix-parity-L{SEQLEN}" + sweep_id
-VOCAB_SIZE = 3
 
-# 1. First we are going to create the data configuration
-datas = []
+VOCAB_SIZE = 8_192
 
-for k in [
-    4, 
-    8, 
-    16, 
-    32, 
-    # 64, 
-    # 128
-    ]:
-    train_configs = [ParityConfig(vocab_size=VOCAB_SIZE, input_seq_len=k, num_examples=100_000)]
-    test_configs = [ParityConfig(vocab_size=VOCAB_SIZE, input_seq_len=k, num_examples=1_000)]
+train_configs = [    
+    MQARConfig(vocab_size=VOCAB_SIZE, input_seq_len=64, num_examples=100_000, num_kv_pairs=4),
+    MQARConfig(vocab_size=VOCAB_SIZE, input_seq_len=128, num_examples=20_000, num_kv_pairs=8),
+    MQARConfig(vocab_size=VOCAB_SIZE, input_seq_len=256, num_examples=20_000, num_kv_pairs=16),
+    # MQARConfig(vocab_size=VOCAB_SIZE, input_seq_len=256, num_examples=20_000, num_kv_pairs=32),
+    # MQARConfig(vocab_size=VOCAB_SIZE, input_seq_len=256, num_examples=20_000, num_kv_pairs=64),
+]
+test_configs = [
+    MQARConfig(vocab_size=VOCAB_SIZE, input_seq_len=64, num_examples=1_000, num_kv_pairs=4),
+    MQARConfig(vocab_size=VOCAB_SIZE, input_seq_len=64, num_examples=1_000, num_kv_pairs=8),
+    MQARConfig(vocab_size=VOCAB_SIZE, input_seq_len=64, num_examples=1_000, num_kv_pairs=16),
+    # MQARConfig(vocab_size=VOCAB_SIZE, input_seq_len=128, num_examples=1_000, num_kv_pairs=32),
+    # MQARConfig(vocab_size=VOCAB_SIZE, input_seq_len=256, num_examples=1_000, num_kv_pairs=64),
+    # MQARConfig(vocab_size=VOCAB_SIZE, input_seq_len=512, num_examples=1_000, num_kv_pairs=128),
+    # MQARConfig(vocab_size=VOCAB_SIZE, input_seq_len=1024, num_examples=1_000, num_kv_pairs=256),
+]
 
-    input_seq_len=max([c.input_seq_len for c in train_configs + test_configs])
-    batch_size = 256
-    data = DataConfig(
-        train_configs=train_configs,
-        test_configs=test_configs,
-        # can pass a tuple if you want a different batch size for train and test
-        batch_size=(batch_size, batch_size / 8),
-        cache_dir="/home/quinn/quinn_data/synthetics",
-        force_cache=True
-    )
-    datas.append(data)
+input_seq_len=max([c.input_seq_len for c in train_configs + test_configs])
+batch_size = 256
+data = DataConfig(
+    train_configs=train_configs,
+    test_configs=test_configs,
+    # can pass a tuple if you want a different batch size for train and test
+    batch_size=(batch_size, batch_size / 8),
+    cache_dir="/home/quinn/quinn_data/synthetics"
+)
 
 # 2. Next, we are going to collect all the different model configs we want to sweep
 models = []
@@ -57,8 +57,8 @@ conv_mixer = dict(
 # scratch transformers
 for d_model in [
     # 8, 
-    # 16, 
-    32
+    16, 
+    #32
     ]:
     for num_heads in [
         2, 
@@ -92,8 +92,8 @@ for d_model in [
 # attention
 for d_model in [
     # 8, 
-    # 16, 
-    32
+    16, 
+    # 32
     ]:
     for num_heads in [
         2, 
@@ -121,25 +121,26 @@ for d_model in [
         )
         models.append(model)
 
+
 # 3. Finally we'll create a train config for each
 configs = []
-for data in datas:
-    for model in models:
-        for i, lr in enumerate(np.logspace(-3.5, -2, 4)):
-            run_id = f"{model.name}-lr{lr:.1e}"
-            config = TrainConfig(
-                model=model,
-                data=data,
-                learning_rate=lr,
-                max_epochs=16,
-                logger=LoggerConfig(
-                    project_name="ScratchParity",
-                    entity="hazy-research"
-                ),
-                slice_keys=['input_seq_len'],
-                sweep_id=sweep_name,
-                run_id=run_id,
-                predictions_path=f"/home/quinn/quinn_data/synthetics/predictions/{run_id}",
-                collect_predictions=True,
-            )
-            configs.append(config)
+for model in models:
+    for i, lr in enumerate(np.logspace(-3.5, -2, 4)):
+        run_id = f"{model.name}-lr{lr:.1e}"
+        config = TrainConfig(
+            model=model,
+            data=data,
+            learning_rate=lr,
+            max_epochs=16,
+            logger=LoggerConfig(
+                project_name="ScratchAR",
+                entity="hazy-research"
+            ),
+            slice_keys=['input_seq_len'],
+            sweep_id=sweep_name,
+            run_id=run_id,
+            predictions_path=f"/home/quinn/quinn_data/synthetics/predictions/{run_id}",
+            collect_predictions=True,
+        )
+        configs.append(config)
+

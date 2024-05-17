@@ -1,7 +1,7 @@
 import uuid
 import numpy as np
 from zoology.config import TrainConfig, ModelConfig, ModuleConfig, DataConfig, LoggerConfig
-from zoology.data.circuits import ParityConfig
+from zoology.data.circuits import CumulativeMajorityConfig
 
 
 sweep_id = uuid.uuid4().hex[:6]
@@ -14,15 +14,15 @@ VOCAB_SIZE = 3
 datas = []
 
 for k in [
-    4, 
-    8, 
-    16, 
-    32, 
-    # 64, 
-    # 128
+    # 4, 
+    # 8, 
+    # 16, 
+    # 32, 
+    64, 
+    128
     ]:
-    train_configs = [ParityConfig(vocab_size=VOCAB_SIZE, input_seq_len=k, num_examples=100_000)]
-    test_configs = [ParityConfig(vocab_size=VOCAB_SIZE, input_seq_len=k, num_examples=1_000)]
+    train_configs = [CumulativeMajorityConfig(vocab_size=VOCAB_SIZE, input_seq_len=k, num_examples=100_000)]
+    test_configs = [CumulativeMajorityConfig(vocab_size=VOCAB_SIZE, input_seq_len=k, num_examples=1_000)]
 
     input_seq_len=max([c.input_seq_len for c in train_configs + test_configs])
     batch_size = 256
@@ -31,7 +31,7 @@ for k in [
         test_configs=test_configs,
         # can pass a tuple if you want a different batch size for train and test
         batch_size=(batch_size, batch_size / 8),
-        cache_dir="/home/quinn/quinn_data/synthetics",
+        cache_dir="/scratch/quinn/synthetics/data",
         force_cache=True
     )
     datas.append(data)
@@ -121,6 +121,7 @@ for d_model in [
         )
         models.append(model)
 
+
 # 3. Finally we'll create a train config for each
 configs = []
 for data in datas:
@@ -133,7 +134,7 @@ for data in datas:
                 learning_rate=lr,
                 max_epochs=16,
                 logger=LoggerConfig(
-                    project_name="ScratchParity",
+                    project_name="ScratchMajorityCumulative",
                     entity="hazy-research"
                 ),
                 slice_keys=['input_seq_len'],
