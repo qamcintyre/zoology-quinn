@@ -107,9 +107,9 @@ class ModelConfig(BaseConfig): # with added scratch token fields
     pad_vocab_size_multiple: int = 1
 
     # scratch token fields
-    transformer: str = "normal" # normal or scratch
-    scratch: str = "add" # add or replace
-    num_scratch: int = 1 # number of scratch tokens
+    # transformer: str = "normal" # normal or scratch
+    # scratch: str = "add" # add or replace
+    # num_scratch: int = 1 # number of scratch tokens
 
 
     block_type: str = "TransformerBlock"
@@ -119,6 +119,10 @@ class ModelConfig(BaseConfig): # with added scratch token fields
     transformer: str = "normal"
     scratch: str | None = None
     num_scratch: int | None = None
+
+    # for repeated attention
+    repetitions: int = 0
+    rep_dim: str = 'q'
 
     
 

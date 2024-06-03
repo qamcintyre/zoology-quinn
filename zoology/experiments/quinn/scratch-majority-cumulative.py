@@ -18,8 +18,11 @@ for k in [
     # 8, 
     # 16, 
     # 32, 
-    64, 
-    128
+    # 64, 
+    # 128,
+    256,
+    512,
+    # 1024,
     ]:
     train_configs = [CumulativeMajorityConfig(vocab_size=VOCAB_SIZE, input_seq_len=k, num_examples=100_000)]
     test_configs = [CumulativeMajorityConfig(vocab_size=VOCAB_SIZE, input_seq_len=k, num_examples=1_000)]
@@ -56,44 +59,56 @@ conv_mixer = dict(
 
 # scratch transformers
 for d_model in [
-    # 8, 
+    8, 
     # 16, 
-    32
+    # 32,
+    # 64,
     ]:
     for num_heads in [
         2, 
-        4
+        4,
         ]:
-        attention_mixer = dict(
-            name="zoology.mixers.attention.MHA",
-            kwargs={
-                "dropout": 0.1,
-                "num_heads": num_heads
-            },
-        )
-        mixer = ModuleConfig(
-            name="zoology.mixers.hybrid.Hybrid",
-            kwargs={"configs": [conv_mixer, attention_mixer]}
-        )
-        model = ModelConfig(
-            block_type = "TransformerBlock",
-            d_model=d_model,
-            n_layers=2,
-            sequence_mixer=mixer,
-            max_position_embeddings=0,
-            transformer="scratch",
-            num_scratch=2,
-            scratch="add",
-            name=f"attention-dim-{d_model}-heads-{num_heads}",
-            **model_factory_kwargs
-        )
-        models.append(model)
+        for num_scratch in [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            ]:
+            attention_mixer = dict(
+                name="zoology.mixers.attention.MHA",
+                kwargs={
+                    "dropout": 0.1,
+                    "num_heads": num_heads
+                },
+            )
+            mixer = ModuleConfig(
+                name="zoology.mixers.hybrid.Hybrid",
+                kwargs={"configs": [conv_mixer, attention_mixer]}
+            )
+            model = ModelConfig(
+                block_type = "TransformerBlock",
+                d_model=d_model,
+                n_layers=2,
+                sequence_mixer=mixer,
+                max_position_embeddings=0,
+                transformer="scratch",
+                num_scratch=num_scratch,
+                scratch="add",
+                name=f"scratch-{num_scratch}-attention-dim-{d_model}-heads-{num_heads}",
+                **model_factory_kwargs
+            )
+            models.append(model)
 
 # attention
 for d_model in [
-    # 8, 
+    8, 
     # 16, 
-    32
+    # 32,
+    # 64,
     ]:
     for num_heads in [
         2, 
@@ -132,9 +147,9 @@ for data in datas:
                 model=model,
                 data=data,
                 learning_rate=lr,
-                max_epochs=16,
+                max_epochs=64,
                 logger=LoggerConfig(
-                    project_name="ScratchMajorityCumulative",
+                    project_name="ScratchMajorityCumulativeFRThisTime",
                     entity="hazy-research"
                 ),
                 slice_keys=['input_seq_len'],

@@ -73,7 +73,6 @@ class MHR(nn.Module):
             qkv, "... (three h d) -> ... three h d", three=3, d=self.head_dim
         )
         context = self.inner_attn(qkv)
-        context_sum = context
 
         if self.repititions > 1:
             q, k, v = qkv.unbind(dim=2)
@@ -84,9 +83,8 @@ class MHR(nn.Module):
                     qkv = torch.stack([q, context, v], dim=2)
 
                 context = self.inner_attn(qkv)
-                context_sum += context
 
-        out = self.out_proj(rearrange(context_sum, "... h d -> ... (h d)"))
+        out = self.out_proj(rearrange(context, "... h d -> ... (h d)"))
         return out
     
     def state_size(self, batch_size: int=1, sequence_length: int=2048):
