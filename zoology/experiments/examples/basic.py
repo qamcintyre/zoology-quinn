@@ -1,19 +1,15 @@
 from zoology.config import TrainConfig, ModelConfig, DataConfig, FunctionConfig, ModuleConfig
+from zoology.data.associative_recall import MQARConfig
 
-
+base_config = MQARConfig(vocab_size=256, input_seq_len=64, num_examples=10_000, num_kv_pairs=4)
+test_config = MQARConfig(vocab_size=256, input_seq_len=64, num_examples=1_000, num_kv_pairs=4)
 
 config = TrainConfig(
     data=DataConfig(
-        # cache_dir="/path/to/cache/dir"  TODO: add this
-        vocab_size=256,
-        input_seq_len=64,
-        num_train_examples=10_000,
-        num_test_examples=1_000,
-        builder=FunctionConfig(
-            name="zoology.data.associative_recall.multiquery_ar",
-            kwargs={"num_kv_pairs": 4}
-        ),
-        
+        cache_dir="/data/quinn/zoology",
+        train_configs=[base_config],
+        test_configs=[test_config],
+        batch_size=256,
     ),
     model=ModelConfig(
         vocab_size=256,
@@ -23,7 +19,6 @@ config = TrainConfig(
             kwargs={"dropout": 0.1, "num_heads": 1}
         )
     ),
-    
 )
 
 configs = [config]
