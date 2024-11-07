@@ -7,15 +7,20 @@ from zoology.data.utils import DataSegment
 class KeyValueMemorizationConfig(DataSegmentConfig):
     name: str = "key_value_memorization"
     num_examples: int = 1000
-    vocab_size: int = 100
     num_kv_pairs: int = 50
     input_seq_len: int = 20
     test_split: float = 0.1
-    kv_dict: Optional[Dict[int, int]] = None
 
     def build(self, seed: int) -> DataSegment:
-        assert self.kv_dict is not None, "kv_dict must be provided"
-        return key_value_memorization(self, self.kv_dict, seed=seed)
+        np.random.seed(seed)
+        # Generate keys and values
+        num_kv_pairs = self.num_kv_pairs
+        keys = np.arange(1, num_kv_pairs + 1)
+        values = np.arange(num_kv_pairs + 1, num_kv_pairs * 2 + 1)
+        kv_dict = dict(zip(keys, values))
+        # Adjust vocab_size to include all keys and values plus the padding token (0)
+        self.vocab_size = num_kv_pairs * 2 + 1  # +1 for padding token
+        return key_value_memorization(self, kv_dict, seed=seed)
 
 def key_value_memorization(
     config: KeyValueMemorizationConfig,
@@ -31,6 +36,8 @@ def key_value_memorization(
     test_split = config.test_split
 
     keys = list(kv_dict.keys())
+    values = list(kv_dict.values())
+    vocab = keys + values
 
     inputs = []
     labels = []
@@ -47,13 +54,8 @@ def key_value_memorization(
 
         for key in selected_keys:
             value = kv_dict[key]
-            insert_noise = np.random.choice([True, False])
-            if insert_noise:
-                num_noise_tokens = np.random.randint(1, 3)
-                noise_tokens = np.random.randint(1, vocab_size, size=num_noise_tokens).tolist()
-                sequence.extend([key] + noise_tokens + [value])
-            else:
-                sequence.extend([key, value])
+            # Remove noise tokens or adjust as needed
+            sequence.extend([key, value])
 
         sequence = sequence[:input_seq_len]
 
